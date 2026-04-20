@@ -4,6 +4,7 @@ import android.app.Application
 import com.eewill.discgolftraining.data.AppDatabase
 import com.eewill.discgolftraining.data.ApproachRoundRepository
 import com.eewill.discgolftraining.data.DiscRepository
+import com.eewill.discgolftraining.data.PuttingRoundRepository
 import com.eewill.discgolftraining.data.RoundRepository
 
 class DiscGolfApp : Application() {
@@ -12,5 +13,8 @@ class DiscGolfApp : Application() {
     val discRepository: DiscRepository by lazy { DiscRepository(database.discDao()) }
     val approachRoundRepository: ApproachRoundRepository by lazy {
         ApproachRoundRepository(database.approachRoundDao())
+    }
+    val puttingRoundRepository: PuttingRoundRepository by lazy {
+        PuttingRoundRepository(database.puttingRoundDao())
     }
 }

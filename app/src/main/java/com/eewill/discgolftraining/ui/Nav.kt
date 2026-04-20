@@ -11,9 +11,13 @@ import com.eewill.discgolftraining.ui.active.ActiveRoundScreen
 import com.eewill.discgolftraining.ui.approach.active.ApproachActiveScreen
 import com.eewill.discgolftraining.ui.approach.setup.ApproachSetupScreen
 import com.eewill.discgolftraining.ui.approach.summary.ApproachSummaryScreen
+import com.eewill.discgolftraining.ui.disc.DiscDetailScreen
 import com.eewill.discgolftraining.ui.history.HistoryScreen
 import com.eewill.discgolftraining.ui.home.HomeScreen
 import com.eewill.discgolftraining.ui.picker.SetupPickerScreen
+import com.eewill.discgolftraining.ui.putting.active.PuttingActiveScreen
+import com.eewill.discgolftraining.ui.putting.setup.PuttingSetupScreen
+import com.eewill.discgolftraining.ui.putting.summary.PuttingSummaryScreen
 import com.eewill.discgolftraining.ui.replay.ReplayScreen
 import com.eewill.discgolftraining.ui.settings.SettingsScreen
 import com.eewill.discgolftraining.ui.setup.SetupScreen
@@ -33,12 +37,19 @@ object Routes {
     const val APPROACH_SETUP = "approach/setup"
     const val APPROACH_ACTIVE = "approach/active/{roundId}"
     const val APPROACH_SUMMARY = "approach/summary/{roundId}"
+    const val PUTTING_SETUP = "putting/setup"
+    const val PUTTING_ACTIVE = "putting/active/{roundId}"
+    const val PUTTING_SUMMARY = "putting/summary/{roundId}"
+    const val DISC_DETAIL = "disc/detail/{discId}"
 
     fun active(id: String) = "active/$id"
     fun summary(id: String) = "summary/$id"
     fun replay(id: String) = "replay/$id"
     fun approachActive(id: String) = "approach/active/$id"
     fun approachSummary(id: String) = "approach/summary/$id"
+    fun puttingActive(id: String) = "putting/active/$id"
+    fun puttingSummary(id: String) = "putting/summary/$id"
+    fun discDetail(id: String) = "disc/detail/$id"
 }
 
 const val REUSED_ROUND_ID_KEY = "reusedRoundId"
@@ -57,6 +68,7 @@ fun DiscGolfNavHost(navController: NavHostController = rememberNavController()) 
             HomeScreen(
                 onStartGapPractice = { navController.navigate(Routes.SETUP) },
                 onStartApproachPractice = { navController.navigate(Routes.APPROACH_SETUP) },
+                onStartPuttingPractice = { navController.navigate(Routes.PUTTING_SETUP) },
                 onOpenHistory = { navController.navigate(Routes.HISTORY) },
                 onOpenStats = { navController.navigate(Routes.STATS) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
@@ -119,16 +131,27 @@ fun DiscGolfNavHost(navController: NavHostController = rememberNavController()) 
         composable(Routes.HISTORY) {
             HistoryScreen(
                 onBack = { navController.popBackStack() },
-                onOpenRound = { id -> navController.navigate(Routes.replay(id)) },
+                onOpenGapRound = { id -> navController.navigate(Routes.replay(id)) },
+                onOpenApproachRound = { id -> navController.navigate(Routes.approachSummary(id)) },
+                onOpenPuttingRound = { id -> navController.navigate(Routes.puttingSummary(id)) },
             )
         }
         composable(Routes.STATS) {
             StatsScreen(
                 onBack = { navController.popBackStack() },
+                onOpenDisc = { id -> navController.navigate(Routes.discDetail(id)) },
             )
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenDisc = { id -> navController.navigate(Routes.discDetail(id)) },
+            )
+        }
+        composable(Routes.DISC_DETAIL) { entry ->
+            val discId = entry.arguments?.getString("discId").orEmpty()
+            DiscDetailScreen(
+                discId = discId,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -164,6 +187,34 @@ fun DiscGolfNavHost(navController: NavHostController = rememberNavController()) 
         composable(Routes.APPROACH_SUMMARY) { entry ->
             val roundId = entry.arguments?.getString("roundId").orEmpty()
             ApproachSummaryScreen(
+                roundId = roundId,
+                onHome = { navController.popBackStack(Routes.HOME, inclusive = false) },
+            )
+        }
+        composable(Routes.PUTTING_SETUP) {
+            PuttingSetupScreen(
+                onBack = { navController.popBackStack() },
+                onBegin = { roundId ->
+                    navController.navigate(Routes.puttingActive(roundId)) {
+                        popUpTo(Routes.HOME)
+                    }
+                },
+            )
+        }
+        composable(Routes.PUTTING_ACTIVE) { entry ->
+            val roundId = entry.arguments?.getString("roundId").orEmpty()
+            PuttingActiveScreen(
+                roundId = roundId,
+                onEndRound = {
+                    navController.navigate(Routes.puttingSummary(roundId)) {
+                        popUpTo(Routes.HOME)
+                    }
+                },
+            )
+        }
+        composable(Routes.PUTTING_SUMMARY) { entry ->
+            val roundId = entry.arguments?.getString("roundId").orEmpty()
+            PuttingSummaryScreen(
                 roundId = roundId,
                 onHome = { navController.popBackStack(Routes.HOME, inclusive = false) },
             )

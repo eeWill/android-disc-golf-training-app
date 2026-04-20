@@ -6,6 +6,7 @@ import com.eewill.discgolftraining.data.ApproachRoundEntity
 import com.eewill.discgolftraining.data.ApproachRoundRepository
 import com.eewill.discgolftraining.data.ApproachThrowEntity
 import com.eewill.discgolftraining.data.DiscEntity
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,35 +14,35 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class LandingZone(val label: String, val range: String) {
-    TAP_IN("Tap-in", "0–11 ft"),
-    C1X("C1X", "11–33 ft"),
-    C2("C2", "33+ ft");
-
-    companion object {
-        fun of(distanceFeet: Float): LandingZone = when {
-            distanceFeet < 11f -> TAP_IN
-            distanceFeet < 33f -> C1X
-            else -> C2
-        }
-    }
-}
-
 data class DiscLanding(
     val disc: DiscEntity,
     val distanceFeet: Float,
-    val zone: LandingZone,
+    val latLng: LatLng? = null,
+)
+
+data class DistanceBin(
+    val label: String,
+    val count: Int,
 )
 
 data class ApproachSummaryState(
     val round: ApproachRoundEntity?,
     val totalThrows: Int,
-    val zoneCounts: Map<LandingZone, Int>,
     val landings: List<DiscLanding>,
+    val histogram: List<DistanceBin>,
 )
 
+private fun binIndexFor(distanceFeet: Float): Int =
+    if (distanceFeet < 10f) 0 else 1 + ((distanceFeet - 10f) / 5f).toInt().coerceAtLeast(0)
+
+private fun binLabel(index: Int): String =
+    if (index == 0) "0-10" else {
+        val lo = 10 + (index - 1) * 5
+        "$lo-${lo + 5}"
+    }
+
 class ApproachSummaryViewModel(
-    roundId: String,
+    private val roundId: String,
     private val repository: ApproachRoundRepository,
 ) : ViewModel() {
 
@@ -49,6 +50,13 @@ class ApproachSummaryViewModel(
 
     init {
         viewModelScope.launch { _round.value = repository.getRound(roundId) }
+    }
+
+    fun updateNotes(notes: String?) {
+        viewModelScope.launch {
+            repository.updateRoundNotes(roundId, notes)
+            _round.value = _round.value?.copy(notes = notes)
+        }
     }
 
     val state: StateFlow<ApproachSummaryState> = combine(
@@ -60,7 +68,7 @@ class ApproachSummaryViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ApproachSummaryState(null, 0, emptyMap(), emptyList()),
+        initialValue = ApproachSummaryState(null, 0, emptyList(), emptyList()),
     )
 
     private fun buildState(
@@ -68,21 +76,27 @@ class ApproachSummaryViewModel(
         discs: List<DiscEntity>,
         throws: List<ApproachThrowEntity>,
     ): ApproachSummaryState {
-        val discById = discs.associateBy { it.id }
         val landings = discs.mapNotNull { disc ->
             val t = throws.firstOrNull { it.discId == disc.id } ?: return@mapNotNull null
+            val lat = t.landingLat
+            val lng = t.landingLng
             DiscLanding(
                 disc = disc,
                 distanceFeet = t.landingDistanceFeet,
-                zone = LandingZone.of(t.landingDistanceFeet),
+                latLng = if (lat != null && lng != null) LatLng(lat, lng) else null,
             )
         }
-        val counts = LandingZone.entries.associateWith { z -> landings.count { it.zone == z } }
+        val histogram = if (landings.isEmpty()) emptyList() else {
+            val binCounts = mutableMapOf<Int, Int>()
+            landings.forEach { binCounts.merge(binIndexFor(it.distanceFeet), 1, Int::plus) }
+            val maxBin = binCounts.keys.max()
+            (0..maxBin).map { i -> DistanceBin(binLabel(i), binCounts[i] ?: 0) }
+        }
         return ApproachSummaryState(
             round = round,
             totalThrows = landings.size,
-            zoneCounts = counts,
             landings = landings,
+            histogram = histogram,
         )
     }
 }

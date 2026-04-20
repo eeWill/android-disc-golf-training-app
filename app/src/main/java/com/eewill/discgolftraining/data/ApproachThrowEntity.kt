@@ -29,4 +29,6 @@ data class ApproachThrowEntity(
     val index: Int,
     val discId: String?,
     val landingDistanceFeet: Float,
+    val landingLat: Double? = null,
+    val landingLng: Double? = null,
 )

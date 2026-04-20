@@ -2,6 +2,7 @@ package com.eewill.discgolftraining.ui.approach.setup
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,11 +27,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.location.Location
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +41,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eewill.discgolftraining.data.DiscType
+import com.eewill.discgolftraining.ui.approach.map.ApproachMap
+import com.eewill.discgolftraining.ui.approach.map.rememberCurrentLatLng
+import com.eewill.discgolftraining.ui.approach.map.rememberLocationPermissionState
 import com.eewill.discgolftraining.ui.approachRoundRepository
 import com.eewill.discgolftraining.ui.components.DiscTypeFilter
 import com.eewill.discgolftraining.ui.discRepository
@@ -58,12 +64,41 @@ fun ApproachSetupScreen(
     )
     val discs by viewModel.discs.collectAsState()
     val selected by viewModel.selectedDiscIds.collectAsState()
+    val pendingTarget by viewModel.pendingTarget.collectAsState()
+    val pendingStart by viewModel.pendingStart.collectAsState()
 
     var distanceText by remember { mutableStateOf("") }
+    var distanceUserEdited by remember { mutableStateOf(false) }
+    var targetSizeText by remember { mutableStateOf("33") }
     var typeFilter by remember { mutableStateOf<DiscType?>(null) }
     val distance = distanceText.toFloatOrNull()
+    val targetSize = targetSizeText.toFloatOrNull()
     val canBegin = distance != null && distance > 0f && selected.isNotEmpty()
     val visibleDiscs = typeFilter?.let { t -> discs.filter { it.type == t } } ?: discs
+
+    val (locationGranted, requestLocation) = rememberLocationPermissionState()
+    LaunchedEffect(Unit) { if (!locationGranted) requestLocation() }
+    val currentLatLng by rememberCurrentLatLng(locationGranted)
+
+    LaunchedEffect(currentLatLng) {
+        if (pendingStart == null && currentLatLng != null) {
+            viewModel.setPendingStart(currentLatLng)
+        }
+    }
+
+    LaunchedEffect(pendingTarget, pendingStart, distanceUserEdited) {
+        if (distanceUserEdited) return@LaunchedEffect
+        val target = pendingTarget ?: return@LaunchedEffect
+        val start = pendingStart ?: return@LaunchedEffect
+        val out = FloatArray(1)
+        Location.distanceBetween(
+            start.latitude, start.longitude,
+            target.latitude, target.longitude,
+            out,
+        )
+        val feet = out[0] * 3.28084f
+        distanceText = if (feet % 1f == 0f) feet.toInt().toString() else "%.1f".format(feet)
+    }
 
     Scaffold(
         topBar = {
@@ -85,11 +120,52 @@ fun ApproachSetupScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Target distance", style = MaterialTheme.typography.titleSmall)
+            Text("Target", style = MaterialTheme.typography.titleSmall)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp),
+            ) {
+                ApproachMap(
+                    modifier = Modifier.fillMaxSize(),
+                    targetLatLng = pendingTarget,
+                    startLatLng = pendingStart,
+                    targetCircleRadiusMeters = ((targetSize ?: 0f) * 0.3048f).toDouble(),
+                    startDraggable = true,
+                    onTargetPlaced = { viewModel.setPendingTarget(it) },
+                    onStartMoved = { viewModel.setPendingStart(it) },
+                )
+            }
+            Text(
+                text = when {
+                    pendingTarget != null -> "Drag the pin to fine-tune. Tap is disabled once placed."
+                    else -> "Tap the map to drop the target."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedTextField(
+                value = targetSizeText,
+                onValueChange = { targetSizeText = it.filter { c -> c.isDigit() || c == '.' } },
+                label = { Text("Target radius (ft)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             OutlinedTextField(
                 value = distanceText,
-                onValueChange = { distanceText = it.filter { c -> c.isDigit() || c == '.' } },
+                onValueChange = {
+                    distanceUserEdited = true
+                    distanceText = it.filter { c -> c.isDigit() || c == '.' }
+                },
                 label = { Text("Distance to target (ft)") },
+                supportingText = {
+                    if (!distanceUserEdited && pendingTarget != null && pendingStart != null) {
+                        Text("Auto-filled from start to target. Edit to override.")
+                    }
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -146,7 +222,7 @@ fun ApproachSetupScreen(
             Button(
                 onClick = {
                     val d = distance ?: return@Button
-                    viewModel.beginRound(d, onBegin)
+                    viewModel.beginRound(d, targetSize, onBegin)
                 },
                 enabled = canBegin,
                 modifier = Modifier.fillMaxWidth(),

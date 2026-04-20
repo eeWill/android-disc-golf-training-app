@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 fun HomeScreen(
     onStartGapPractice: () -> Unit,
     onStartApproachPractice: () -> Unit,
+    onStartPuttingPractice: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenStats: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -52,6 +53,13 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Approach Shot Practice")
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onStartPuttingPractice,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Putting Practice")
             }
             Spacer(Modifier.height(32.dp))
             OutlinedButton(

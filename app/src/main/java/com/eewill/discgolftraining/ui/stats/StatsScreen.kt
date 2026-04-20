@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,10 +68,13 @@ import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import java.text.DateFormat
 import java.util.Date
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class StatsTab { GAP, APPROACH, PUTTING, PER_DISC }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun StatsScreen(
     onBack: () -> Unit,
+    onOpenDisc: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val viewModel: StatsViewModel = viewModel(
@@ -86,7 +91,7 @@ fun StatsScreen(
 
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
-    var showApproach by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(StatsTab.GAP) }
 
     val dateFmt = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
 
@@ -114,22 +119,46 @@ fun StatsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 FilterChip(
-                    selected = !showApproach,
-                    onClick = { showApproach = false },
+                    selected = tab == StatsTab.GAP,
+                    onClick = { tab = StatsTab.GAP },
                     label = { Text("Gap Throwing") },
                 )
                 FilterChip(
-                    selected = showApproach,
-                    onClick = { showApproach = true },
+                    selected = tab == StatsTab.APPROACH,
+                    onClick = { tab = StatsTab.APPROACH },
                     label = { Text("Approach Shot") },
+                )
+                FilterChip(
+                    selected = tab == StatsTab.PUTTING,
+                    onClick = { tab = StatsTab.PUTTING },
+                    label = { Text("Putting") },
+                )
+                FilterChip(
+                    selected = tab == StatsTab.PER_DISC,
+                    onClick = { tab = StatsTab.PER_DISC },
+                    label = { Text("Per Disc") },
                 )
             }
 
-            if (showApproach) {
-                ApproachStatsContent()
-                return@Column
+            when (tab) {
+                StatsTab.APPROACH -> {
+                    ApproachStatsContent()
+                    return@Column
+                }
+                StatsTab.PUTTING -> {
+                    PuttingStatsContent()
+                    return@Column
+                }
+                StatsTab.PER_DISC -> {
+                    DiscListStatsContent(onOpenDisc = onOpenDisc)
+                    return@Column
+                }
+                StatsTab.GAP -> Unit
             }
 
             Text("Date range", style = MaterialTheme.typography.titleSmall)

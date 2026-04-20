@@ -3,6 +3,69 @@ package com.eewill.discgolftraining.data
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `putting_rounds` (
+                `id` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `minDistanceFeet` REAL NOT NULL,
+                `maxDistanceFeet` REAL NOT NULL,
+                `intervalFeet` REAL NOT NULL,
+                `throwsPerPosition` INTEGER NOT NULL,
+                `notes` TEXT,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `putting_throws` (
+                `id` TEXT NOT NULL,
+                `roundId` TEXT NOT NULL,
+                `distanceFeet` REAL NOT NULL,
+                `positionIndex` INTEGER NOT NULL,
+                `throwIndex` INTEGER NOT NULL,
+                `result` TEXT NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`roundId`) REFERENCES `putting_rounds`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_putting_throws_roundId` ON `putting_throws`(`roundId`)")
+    }
+}
+
+val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `rounds` ADD COLUMN `notes` TEXT")
+        db.execSQL("ALTER TABLE `approach_rounds` ADD COLUMN `notes` TEXT")
+    }
+}
+
+val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `approach_rounds` ADD COLUMN `startLat` REAL")
+        db.execSQL("ALTER TABLE `approach_rounds` ADD COLUMN `startLng` REAL")
+    }
+}
+
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `approach_rounds` ADD COLUMN `targetSizeFeet` REAL")
+    }
+}
+
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `approach_rounds` ADD COLUMN `targetLat` REAL")
+        db.execSQL("ALTER TABLE `approach_rounds` ADD COLUMN `targetLng` REAL")
+        db.execSQL("ALTER TABLE `approach_throws` ADD COLUMN `landingLat` REAL")
+        db.execSQL("ALTER TABLE `approach_throws` ADD COLUMN `landingLng` REAL")
+    }
+}
+
 val MIGRATION_3_4: Migration = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(

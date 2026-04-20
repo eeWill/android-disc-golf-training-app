@@ -9,6 +9,7 @@ import com.eewill.discgolftraining.data.DiscEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -17,8 +18,14 @@ class ApproachActiveViewModel(
     private val repository: ApproachRoundRepository,
 ) : ViewModel() {
 
-    val round: StateFlow<ApproachRoundEntity?> = MutableStateFlow<ApproachRoundEntity?>(null).also {
-        viewModelScope.launch { it.value = repository.getRound(roundId) }
+    private val _round = MutableStateFlow<ApproachRoundEntity?>(null)
+    val round: StateFlow<ApproachRoundEntity?> = _round.asStateFlow()
+
+    private val _placingDiscId = MutableStateFlow<String?>(null)
+    val placingDiscId: StateFlow<String?> = _placingDiscId.asStateFlow()
+
+    init {
+        viewModelScope.launch { _round.value = repository.getRound(roundId) }
     }
 
     val discs: StateFlow<List<DiscEntity>> =
@@ -35,7 +42,12 @@ class ApproachActiveViewModel(
             initialValue = emptyList(),
         )
 
-    fun setThrow(discId: String, distanceFeet: Float) {
+    fun setThrow(
+        discId: String,
+        distanceFeet: Float,
+        landingLat: Double? = null,
+        landingLng: Double? = null,
+    ) {
         val position = discs.value.indexOfFirst { it.id == discId }.coerceAtLeast(0)
         viewModelScope.launch {
             repository.insertThrow(
@@ -45,6 +57,8 @@ class ApproachActiveViewModel(
                     index = position,
                     discId = discId,
                     landingDistanceFeet = distanceFeet,
+                    landingLat = landingLat,
+                    landingLng = landingLng,
                 )
             )
         }
@@ -52,6 +66,21 @@ class ApproachActiveViewModel(
 
     fun clearThrow(discId: String) {
         viewModelScope.launch { repository.deleteThrowForDisc(roundId, discId) }
+    }
+
+    fun updateTarget(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            repository.updateRoundTarget(roundId, lat, lng)
+            _round.value = _round.value?.copy(targetLat = lat, targetLng = lng)
+        }
+    }
+
+    fun beginPlacingLanding(discId: String) {
+        _placingDiscId.value = discId
+    }
+
+    fun cancelPlacingLanding() {
+        _placingDiscId.value = null
     }
 
     private fun throwId(discId: String): String = "$roundId:$discId"

@@ -14,8 +14,10 @@ import androidx.room.TypeConverters
         ApproachRoundEntity::class,
         ApproachRoundDiscEntity::class,
         ApproachThrowEntity::class,
+        PuttingRoundEntity::class,
+        PuttingThrowEntity::class,
     ],
-    version = 4,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -23,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun roundDao(): RoundDao
     abstract fun discDao(): DiscDao
     abstract fun approachRoundDao(): ApproachRoundDao
+    abstract fun puttingRoundDao(): PuttingRoundDao
 
     companion object {
         fun build(context: Context): AppDatabase =
@@ -31,7 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "discgolf.db",
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
     }
 }

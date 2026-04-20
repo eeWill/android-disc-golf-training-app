@@ -46,7 +46,7 @@ fun ReplayScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Replay") },
+                title = { Text("Summary") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

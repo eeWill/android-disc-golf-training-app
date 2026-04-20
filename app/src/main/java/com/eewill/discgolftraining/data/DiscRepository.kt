@@ -7,5 +7,6 @@ class DiscRepository(private val dao: DiscDao) {
     suspend fun updateDisc(disc: DiscEntity) = dao.updateDisc(disc)
     suspend fun deleteDisc(id: String) = dao.deleteDisc(id)
     suspend fun getDisc(id: String): DiscEntity? = dao.getDisc(id)
+    fun observeDisc(id: String): Flow<DiscEntity?> = dao.observeDisc(id)
     fun getAllDiscs(): Flow<List<DiscEntity>> = dao.getAllDiscs()
 }

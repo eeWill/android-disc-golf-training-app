@@ -1,5 +1,6 @@
 package com.eewill.discgolftraining.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +48,7 @@ import com.eewill.discgolftraining.ui.simpleFactory
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenDisc: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel(
@@ -83,7 +85,11 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     itemsIndexed(discs, key = { _, it -> it.id }) { index, disc ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenDisc(disc.id) },
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,

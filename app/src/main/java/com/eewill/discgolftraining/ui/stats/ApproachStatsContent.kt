@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
@@ -58,9 +60,6 @@ import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import java.text.DateFormat
 import java.util.Date
 
-private val TapInColor = Color(0xFF66BB6A)
-private val C1XColor = Color(0xFFFFA726)
-private val C2Color = Color(0xFFEF5350)
 private val AvgRawColor = Color(0xFF90A4AE)
 private val AvgSmoothColor = Color(0xFF42A5F5)
 
@@ -83,7 +82,31 @@ fun ApproachStatsContent() {
     val rangeValid = filters.startDateMillis == null ||
         filters.endDateMillis == null ||
         filters.startDateMillis!! <= filters.endDateMillis!!
-    val canApply = rangeValid && filters.includedDiscTypes.isNotEmpty()
+
+    var minDistText by remember { mutableStateOf(filters.minTargetDistanceFeet?.fmtFeet().orEmpty()) }
+    var maxDistText by remember { mutableStateOf(filters.maxTargetDistanceFeet?.fmtFeet().orEmpty()) }
+    val minDist = minDistText.toFloatOrNull()
+    val maxDist = maxDistText.toFloatOrNull()
+    val minDistBlank = minDistText.isBlank()
+    val maxDistBlank = maxDistText.isBlank()
+    val minDistParsed = minDistBlank || minDist != null
+    val maxDistParsed = maxDistBlank || maxDist != null
+    val distanceRangeValid = minDist == null || maxDist == null || minDist <= maxDist
+
+    LaunchedEffect(minDistText, maxDistText) {
+        if (minDistParsed && maxDistParsed) {
+            viewModel.updateDistanceRange(
+                if (minDistBlank) null else minDist,
+                if (maxDistBlank) null else maxDist,
+            )
+        }
+    }
+
+    val canApply = rangeValid &&
+        filters.includedDiscTypes.isNotEmpty() &&
+        distanceRangeValid &&
+        minDistParsed &&
+        maxDistParsed
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Date range", style = MaterialTheme.typography.titleSmall)
@@ -118,6 +141,26 @@ fun ApproachStatsContent() {
             }
         }
 
+        Text("Target distance (ft)", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = minDistText,
+                onValueChange = { minDistText = it.filter { c -> c.isDigit() || c == '.' } },
+                label = { Text("Min") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = maxDistText,
+                onValueChange = { maxDistText = it.filter { c -> c.isDigit() || c == '.' } },
+                label = { Text("Max") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f),
+            )
+        }
+
         Text("Disc types", style = MaterialTheme.typography.titleSmall)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -135,6 +178,13 @@ fun ApproachStatsContent() {
         if (!rangeValid) {
             Text(
                 "Start date must be on or before end date.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        if (!distanceRangeValid) {
+            Text(
+                "Min distance must be ≤ max distance.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -169,19 +219,7 @@ fun ApproachStatsContent() {
                 AvgDistanceChart(points = points)
                 val overallAvg = points.map { it.avgDistance }.average()
                 Text(
-                    "overall avg ${"%.1f".format(overallAvg)} ft",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-
-                Spacer(Modifier.height(16.dp))
-                Text("Zone % by round", style = MaterialTheme.typography.titleSmall)
-                ZoneLegend()
-                ApproachZoneChart(points = points)
-                val avgTap = points.map { it.tapInPct }.average()
-                val avgC1x = points.map { it.c1xPct }.average()
-                val avgC2 = points.map { it.c2Pct }.average()
-                Text(
-                    "${points.size} rounds · tap-in ${"%.1f".format(avgTap)}% · C1X ${"%.1f".format(avgC1x)}% · C2 ${"%.1f".format(avgC2)}%",
+                    "${points.size} rounds · overall avg ${"%.1f".format(overallAvg)} ft",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -238,7 +276,7 @@ private fun AvgDistanceLegend() {
 }
 
 @Composable
-private fun AvgDistanceChart(points: List<ApproachZonePoint>) {
+private fun AvgDistanceChart(points: List<ApproachStatsPoint>) {
     val modelProducer = remember { CartesianChartModelProducer() }
 
     LaunchedEffect(points) {
@@ -280,25 +318,15 @@ private fun AvgDistanceChart(points: List<ApproachZonePoint>) {
     }
 }
 
+private fun Float.fmtFeet(): String =
+    if (this % 1f == 0f) toInt().toString() else "%.1f".format(this)
+
 private fun List<Double>.movingAverage(window: Int): List<Double> {
     if (isEmpty() || window <= 1) return this
     return indices.map { i ->
         val start = (i - window + 1).coerceAtLeast(0)
         val slice = subList(start, i + 1)
         slice.average()
-    }
-}
-
-@Composable
-private fun ZoneLegend() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LegendSwatch(color = TapInColor, label = "Tap-in")
-        LegendSwatch(color = C1XColor, label = "C1X")
-        LegendSwatch(color = C2Color, label = "C2")
     }
 }
 
@@ -316,45 +344,3 @@ private fun LegendSwatch(color: Color, label: String) {
     }
 }
 
-@Composable
-private fun ApproachZoneChart(points: List<ApproachZonePoint>) {
-    val modelProducer = remember { CartesianChartModelProducer() }
-
-    LaunchedEffect(points) {
-        if (points.isNotEmpty()) {
-            val xs = points.indices.map { (it + 1).toDouble() }
-            modelProducer.runTransaction {
-                lineSeries {
-                    series(x = xs, y = points.map { it.tapInPct.toDouble() })
-                    series(x = xs, y = points.map { it.c1xPct.toDouble() })
-                    series(x = xs, y = points.map { it.c2Pct.toDouble() })
-                }
-            }
-        }
-    }
-
-    val xFormatter = remember {
-        CartesianValueFormatter { _, value, _ -> value.toLong().toString() }
-    }
-
-    val tapLine = LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(fill(TapInColor)))
-    val c1xLine = LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(fill(C1XColor)))
-    val c2Line = LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(fill(C2Color)))
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        CartesianChartHost(
-            chart = rememberCartesianChart(
-                rememberLineCartesianLayer(
-                    lineProvider = LineCartesianLayer.LineProvider.series(tapLine, c1xLine, c2Line),
-                ),
-                startAxis = VerticalAxis.rememberStart(),
-                bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = xFormatter),
-            ),
-            modelProducer = modelProducer,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(240.dp)
-                .padding(12.dp),
-        )
-    }
-}

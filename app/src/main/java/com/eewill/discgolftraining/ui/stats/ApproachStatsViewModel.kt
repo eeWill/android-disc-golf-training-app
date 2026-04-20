@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.eewill.discgolftraining.data.ApproachRoundRepository
 import com.eewill.discgolftraining.data.ApproachThrowStatsRow
 import com.eewill.discgolftraining.data.DiscType
-import com.eewill.discgolftraining.ui.approach.summary.LandingZone
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,11 +13,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
-data class ApproachZonePoint(
+data class ApproachStatsPoint(
     val createdAt: Long,
-    val tapInPct: Float,
-    val c1xPct: Float,
-    val c2Pct: Float,
     val avgDistance: Float,
 )
 
@@ -26,6 +22,8 @@ data class ApproachStatsFilters(
     val startDateMillis: Long?,
     val endDateMillis: Long?,
     val includedDiscTypes: Set<DiscType>,
+    val minTargetDistanceFeet: Float?,
+    val maxTargetDistanceFeet: Float?,
     val applied: Boolean,
 ) {
     companion object {
@@ -36,6 +34,8 @@ data class ApproachStatsFilters(
                 startDateMillis = nowMillis - THIRTY_DAYS_MILLIS,
                 endDateMillis = nowMillis,
                 includedDiscTypes = DiscType.entries.toSet(),
+                minTargetDistanceFeet = null,
+                maxTargetDistanceFeet = null,
                 applied = false,
             )
     }
@@ -53,36 +53,21 @@ class ApproachStatsViewModel(repository: ApproachRoundRepository) : ViewModel() 
             initialValue = emptyList(),
         )
 
-    val points: StateFlow<List<ApproachZonePoint>> =
+    val points: StateFlow<List<ApproachStatsPoint>> =
         combine(allStats, _filters) { rows, f ->
             if (!f.applied) return@combine emptyList()
             rows.asSequence()
                 .filter { f.startDateMillis == null || it.createdAt >= f.startDateMillis }
                 .filter { f.endDateMillis == null || it.createdAt <= f.endDateMillis }
                 .filter { it.discType != null && it.discType in f.includedDiscTypes }
+                .filter { f.minTargetDistanceFeet == null || it.targetDistanceFeet >= f.minTargetDistanceFeet }
+                .filter { f.maxTargetDistanceFeet == null || it.targetDistanceFeet <= f.maxTargetDistanceFeet }
                 .groupBy { it.roundId }
                 .mapNotNull { (_, throws) ->
                     if (throws.isEmpty()) return@mapNotNull null
                     val createdAt = throws.first().createdAt
-                    val total = throws.size.toFloat()
-                    var tap = 0
-                    var c1x = 0
-                    var c2 = 0
-                    for (t in throws) {
-                        when (LandingZone.of(t.distanceFeet)) {
-                            LandingZone.TAP_IN -> tap++
-                            LandingZone.C1X -> c1x++
-                            LandingZone.C2 -> c2++
-                        }
-                    }
                     val avgDist = throws.map { it.distanceFeet }.average().toFloat()
-                    ApproachZonePoint(
-                        createdAt = createdAt,
-                        tapInPct = tap * 100f / total,
-                        c1xPct = c1x * 100f / total,
-                        c2Pct = c2 * 100f / total,
-                        avgDistance = avgDist,
-                    )
+                    ApproachStatsPoint(createdAt = createdAt, avgDistance = avgDist)
                 }
                 .sortedBy { it.createdAt }
                 .toList()
@@ -94,6 +79,10 @@ class ApproachStatsViewModel(repository: ApproachRoundRepository) : ViewModel() 
 
     fun updateDateRange(start: Long?, end: Long?) {
         _filters.update { it.copy(startDateMillis = start, endDateMillis = end, applied = false) }
+    }
+
+    fun updateDistanceRange(min: Float?, max: Float?) {
+        _filters.update { it.copy(minTargetDistanceFeet = min, maxTargetDistanceFeet = max, applied = false) }
     }
 
     fun toggleDiscType(type: DiscType) {

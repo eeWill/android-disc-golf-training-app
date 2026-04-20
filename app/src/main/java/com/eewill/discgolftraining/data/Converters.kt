@@ -16,4 +16,11 @@ class Converters {
     @TypeConverter
     fun toDiscDataMode(value: String?): DiscDataMode =
         value?.let { runCatching { DiscDataMode.valueOf(it) }.getOrNull() } ?: DiscDataMode.NONE
+
+    @TypeConverter
+    fun fromPuttingResult(value: PuttingResult?): String? = value?.name
+
+    @TypeConverter
+    fun toPuttingResult(value: String?): PuttingResult? =
+        value?.let { runCatching { PuttingResult.valueOf(it) }.getOrNull() }
 }

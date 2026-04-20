@@ -21,6 +21,9 @@ interface DiscDao {
     @Query("SELECT * FROM discs WHERE id = :id")
     suspend fun getDisc(id: String): DiscEntity?
 
+    @Query("SELECT * FROM discs WHERE id = :id")
+    fun observeDisc(id: String): Flow<DiscEntity?>
+
     @Query("SELECT * FROM discs ORDER BY sortOrder ASC, createdAt ASC")
     fun getAllDiscs(): Flow<List<DiscEntity>>
 }

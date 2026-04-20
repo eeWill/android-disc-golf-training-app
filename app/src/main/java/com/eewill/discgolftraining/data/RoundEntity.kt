@@ -15,4 +15,5 @@ data class RoundEntity(
     val gapRight: Float,
     val gapBottom: Float,
     val discDataMode: DiscDataMode = DiscDataMode.NONE,
+    val notes: String? = null,
 )

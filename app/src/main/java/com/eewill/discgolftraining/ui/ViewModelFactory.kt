@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.eewill.discgolftraining.DiscGolfApp
 import com.eewill.discgolftraining.data.ApproachRoundRepository
 import com.eewill.discgolftraining.data.DiscRepository
+import com.eewill.discgolftraining.data.PuttingRoundRepository
 import com.eewill.discgolftraining.data.RoundRepository
 
 fun Context.repository(): RoundRepository =
@@ -18,6 +19,9 @@ fun Context.discRepository(): DiscRepository =
 
 fun Context.approachRoundRepository(): ApproachRoundRepository =
     (applicationContext as DiscGolfApp).approachRoundRepository
+
+fun Context.puttingRoundRepository(): PuttingRoundRepository =
+    (applicationContext as DiscGolfApp).puttingRoundRepository
 
 inline fun <reified VM : ViewModel> simpleFactory(
     crossinline create: (CreationExtras) -> VM,
