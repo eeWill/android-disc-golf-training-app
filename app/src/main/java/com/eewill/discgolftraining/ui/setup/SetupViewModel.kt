@@ -1,5 +1,7 @@
 package com.eewill.discgolftraining.ui.setup
 
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,11 +20,13 @@ data class SetupState(
     val imagePath: String? = null,
     val distanceFeet: String = "",
     val gapWidthFeet: String = "",
+    val minDistanceFeet: String = "",
     val gapRect: Rect? = null,
     val discDataMode: DiscDataMode = DiscDataMode.NONE,
 ) {
     val distance: Float? get() = distanceFeet.toFloatOrNull()
     val width: Float? get() = gapWidthFeet.toFloatOrNull()
+    val minDistance: Float? get() = minDistanceFeet.toFloatOrNull()
 
     fun canBegin(hasDiscs: Boolean): Boolean =
         imagePath != null &&
@@ -30,6 +34,7 @@ data class SetupState(
             (width ?: 0f) > 0f &&
             gapRect != null &&
             gapRect.width > 0f && gapRect.height > 0f &&
+            (minDistanceFeet.isBlank() || (minDistance ?: 0f) > 0f) &&
             (discDataMode != DiscDataMode.DISC || hasDiscs)
 
     companion object {
@@ -37,6 +42,7 @@ data class SetupState(
             imagePath = round.imagePath,
             distanceFeet = round.distanceFeet.trimmedString(),
             gapWidthFeet = round.gapWidthFeet.trimmedString(),
+            minDistanceFeet = round.minDistanceFeet?.trimmedString().orEmpty(),
             gapRect = Rect(round.gapLeft, round.gapTop, round.gapRight, round.gapBottom),
             discDataMode = round.discDataMode,
         )
@@ -45,6 +51,41 @@ data class SetupState(
 
 private fun Float.trimmedString(): String =
     if (this % 1f == 0f) toInt().toString() else toString()
+
+val SetupStateSaver: Saver<SetupState, Any> = mapSaver(
+    save = { s ->
+        mapOf(
+            "imagePath" to s.imagePath,
+            "distanceFeet" to s.distanceFeet,
+            "gapWidthFeet" to s.gapWidthFeet,
+            "minDistanceFeet" to s.minDistanceFeet,
+            "gapLeft" to s.gapRect?.left,
+            "gapTop" to s.gapRect?.top,
+            "gapRight" to s.gapRect?.right,
+            "gapBottom" to s.gapRect?.bottom,
+            "discDataMode" to s.discDataMode.name,
+        )
+    },
+    restore = { m ->
+        val left = m["gapLeft"] as Float?
+        val rect = if (left != null) Rect(
+            left,
+            m["gapTop"] as Float,
+            m["gapRight"] as Float,
+            m["gapBottom"] as Float,
+        ) else null
+        SetupState(
+            imagePath = m["imagePath"] as String?,
+            distanceFeet = m["distanceFeet"] as String,
+            gapWidthFeet = m["gapWidthFeet"] as String,
+            minDistanceFeet = m["minDistanceFeet"] as String,
+            gapRect = rect,
+            discDataMode = (m["discDataMode"] as? String)
+                ?.let { runCatching { DiscDataMode.valueOf(it) }.getOrNull() }
+                ?: DiscDataMode.NONE,
+        )
+    },
+)
 
 class SetupViewModel(
     private val repository: RoundRepository,
@@ -80,6 +121,7 @@ class SetupViewModel(
                     gapRight = rect.right,
                     gapBottom = rect.bottom,
                     discDataMode = state.discDataMode,
+                    minDistanceFeet = state.minDistance?.takeIf { it > 0f },
                 )
             )
             onReady(id)

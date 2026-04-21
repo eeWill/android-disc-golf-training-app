@@ -10,4 +10,5 @@ data class DiscEntity(
     val type: DiscType,
     val createdAt: Long,
     val sortOrder: Long = 0L,
+    val notes: String? = null,
 )

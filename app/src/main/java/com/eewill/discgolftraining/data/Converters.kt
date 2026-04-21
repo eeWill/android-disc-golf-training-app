@@ -23,4 +23,11 @@ class Converters {
     @TypeConverter
     fun toPuttingResult(value: String?): PuttingResult? =
         value?.let { runCatching { PuttingResult.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromFlightModifier(value: FlightModifier?): String? = value?.name
+
+    @TypeConverter
+    fun toFlightModifier(value: String?): FlightModifier? =
+        value?.let { runCatching { FlightModifier.valueOf(it) }.getOrNull() }
 }

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -30,9 +33,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eewill.discgolftraining.data.DiscDataMode
+import com.eewill.discgolftraining.data.DiscEntity
 import com.eewill.discgolftraining.ui.active.gapRect
 import com.eewill.discgolftraining.ui.components.ImageWithOverlay
 import com.eewill.discgolftraining.ui.components.ThrowMarker
+import com.eewill.discgolftraining.ui.discRepository
 import com.eewill.discgolftraining.ui.repository
 import com.eewill.discgolftraining.ui.simpleFactory
 
@@ -46,7 +52,9 @@ fun SummaryScreen(
     val context = LocalContext.current
     val viewModel: SummaryViewModel = viewModel(
         key = "summary-$roundId",
-        factory = simpleFactory { SummaryViewModel(roundId, context.repository()) },
+        factory = simpleFactory {
+            SummaryViewModel(roundId, context.repository(), context.discRepository())
+        },
     )
     val state by viewModel.state.collectAsState()
 
@@ -61,8 +69,8 @@ fun SummaryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            val round = state?.round
-            val throws = state?.throws.orEmpty()
+            val round = state.roundWithThrows?.round
+            val throws = state.roundWithThrows?.throws.orEmpty()
             val hits = throws.count { it.isHit }
             val misses = throws.count { !it.isHit }
             val total = throws.size
@@ -78,8 +86,21 @@ fun SummaryScreen(
                 Text("Hits: $hits / $total  (${"%.0f".format(pct)}%)", style = MaterialTheme.typography.titleMedium)
                 Text("Misses: $misses", style = MaterialTheme.typography.bodyLarge)
                 Text("Distance ${round.distanceFeet} ft  ·  Gap width ${round.gapWidthFeet} ft")
+                round.minDistanceFeet?.let { Text("Minimum distance: $it ft") }
             } else {
                 Text("Loading round…")
+            }
+
+            if (round != null
+                && round.discDataMode == DiscDataMode.DISC
+                && state.discsUsed.isNotEmpty()
+            ) {
+                DiscsUsedCard(
+                    minDistanceFeet = round.minDistanceFeet,
+                    discs = state.discsUsed,
+                    shortDiscIds = state.shortDiscIds,
+                    onToggleShort = viewModel::setDiscShort,
+                )
             }
 
             if (round != null) {
@@ -110,6 +131,54 @@ fun SummaryScreen(
             ) {
                 OutlinedButton(onClick = onHome, modifier = Modifier.weight(1f)) { Text("Home") }
                 Button(onClick = onViewHistory, modifier = Modifier.weight(1f)) { Text("View History") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscsUsedCard(
+    minDistanceFeet: Float?,
+    discs: List<DiscEntity>,
+    shortDiscIds: Set<String>,
+    onToggleShort: (String, Boolean) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Discs used", style = MaterialTheme.typography.titleSmall)
+            if (minDistanceFeet != null) {
+                Text(
+                    "Check any that did not reach $minDistanceFeet ft",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            discs.forEach { disc ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (minDistanceFeet != null) {
+                        Checkbox(
+                            checked = disc.id in shortDiscIds,
+                            onCheckedChange = { onToggleShort(disc.id, it) },
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(disc.name)
+                        disc.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+                            Text(
+                                notes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
             }
         }
     }

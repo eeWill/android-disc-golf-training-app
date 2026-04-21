@@ -1,6 +1,7 @@
 package com.eewill.discgolftraining.ui.disc
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,8 +11,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eewill.discgolftraining.data.DiscType
 import com.eewill.discgolftraining.ui.approachRoundRepository
 import com.eewill.discgolftraining.ui.discRepository
 import com.eewill.discgolftraining.ui.repository
@@ -83,9 +88,14 @@ fun DiscDetailScreen(
             }
 
             var editedName by rememberSaveable(disc.id) { mutableStateOf(disc.name) }
-            LaunchedEffect(disc.id) { editedName = disc.name }
+            var editedType by rememberSaveable(disc.id) { mutableStateOf(disc.type) }
+            var editedNotes by rememberSaveable(disc.id) { mutableStateOf(disc.notes.orEmpty()) }
+            LaunchedEffect(disc.id) {
+                editedName = disc.name
+                editedType = disc.type
+                editedNotes = disc.notes.orEmpty()
+            }
 
-            Text(disc.type.displayName(), style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(
                 value = editedName,
                 onValueChange = {
@@ -98,11 +108,24 @@ fun DiscDetailScreen(
                 supportingText = state.nameError?.let { { Text(it) } },
                 modifier = Modifier.fillMaxWidth(),
             )
+            DiscTypeDropdown(
+                selected = editedType,
+                onSelected = { editedType = it },
+            )
+            OutlinedTextField(
+                value = editedNotes,
+                onValueChange = { editedNotes = it },
+                label = { Text("Notes") },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Button(
-                onClick = { viewModel.saveName(editedName) },
+                onClick = { viewModel.save(editedName, editedType, editedNotes) },
                 enabled = !state.isSaving
                     && editedName.trim().isNotEmpty()
-                    && editedName.trim() != disc.name,
+                    && (editedName.trim() != disc.name
+                        || editedType != disc.type
+                        || editedNotes.ifBlank { null } != disc.notes),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(if (state.isSaving) "Saving…" else "Save")
@@ -110,6 +133,42 @@ fun DiscDetailScreen(
 
             GapStatsCard(state)
             ApproachStatsCard(state)
+        }
+    }
+}
+
+@Composable
+private fun DiscTypeDropdown(
+    selected: DiscType,
+    onSelected: (DiscType) -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = selected.displayName(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Type") },
+            trailingIcon = {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(Icons.Filled.ArrowDropDown, contentDescription = "Select type")
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DiscType.entries.forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(type.displayName()) },
+                    onClick = {
+                        onSelected(type)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }

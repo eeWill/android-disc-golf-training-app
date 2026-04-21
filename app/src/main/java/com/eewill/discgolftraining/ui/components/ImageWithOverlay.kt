@@ -1,6 +1,7 @@
 package com.eewill.discgolftraining.ui.components
 
 import android.graphics.BitmapFactory
+import android.media.ExifInterface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -91,7 +92,21 @@ fun rememberBitmapSize(imagePath: String): Size? {
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(imagePath, opts)
         if (opts.outWidth > 0 && opts.outHeight > 0) {
-            size = Size(opts.outWidth.toFloat(), opts.outHeight.toFloat())
+            val rotated = runCatching {
+                val orientation = ExifInterface(imagePath).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL,
+                )
+                orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+                    orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+                    orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+                    orientation == ExifInterface.ORIENTATION_TRANSVERSE
+            }.getOrDefault(false)
+            size = if (rotated) {
+                Size(opts.outHeight.toFloat(), opts.outWidth.toFloat())
+            } else {
+                Size(opts.outWidth.toFloat(), opts.outHeight.toFloat())
+            }
         }
     }
     return size

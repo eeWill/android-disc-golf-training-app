@@ -81,6 +81,9 @@ fun ApproachMap(
             if (landingHandler != null) landingHandler(tap)
             else onTargetPlaced(tap)
         },
+        onMapLongClick = { tap ->
+            if (interactive && startDraggable) onStartMoved(tap)
+        },
     ) {
         startLatLng?.let { pos ->
             val meState = rememberMarkerState(position = pos)

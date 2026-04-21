@@ -137,9 +137,10 @@ fun ApproachSetupScreen(
                 )
             }
             Text(
-                text = when {
-                    pendingTarget != null -> "Drag the pin to fine-tune. Tap is disabled once placed."
-                    else -> "Tap the map to drop the target."
+                text = if (pendingTarget != null) {
+                    "Tap the map to move the target. Long-press anywhere to set your start (blue square)."
+                } else {
+                    "Tap the map to drop the target. Long-press anywhere to set your start (blue square)."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

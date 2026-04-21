@@ -7,15 +7,27 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,7 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eewill.discgolftraining.data.DirectionCounts
 import com.eewill.discgolftraining.data.DiscDataMode
+import com.eewill.discgolftraining.data.DiscEntity
 import com.eewill.discgolftraining.data.DiscType
+import com.eewill.discgolftraining.data.FlightModifier
+import com.eewill.discgolftraining.data.ThrowEntity
 import com.eewill.discgolftraining.ui.components.DiscTypeFilter
 import com.eewill.discgolftraining.ui.components.ImageWithOverlay
 import com.eewill.discgolftraining.ui.components.ThrowMarker
@@ -57,6 +72,10 @@ fun ActiveRoundScreen(
     val typeFilter by viewModel.typeFilter.collectAsState()
     val currentType by viewModel.currentType.collectAsState()
     val currentDiscId by viewModel.currentDiscId.collectAsState()
+    val pendingFlightMod by viewModel.pendingFlightMod.collectAsState()
+    val discs by viewModel.discs.collectAsState()
+
+    var showThrowsSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(visibleDiscs) { viewModel.ensureDiscSelection(visibleDiscs) }
 
@@ -64,7 +83,17 @@ fun ActiveRoundScreen(
         topBar = {
             val hits = state?.throws?.count { it.isHit } ?: 0
             val misses = state?.throws?.count { !it.isHit } ?: 0
-            TopAppBar(title = { Text("Hits $hits  |  Misses $misses") })
+            TopAppBar(
+                title = { Text("Hits $hits  |  Misses $misses") },
+                actions = {
+                    IconButton(
+                        onClick = { showThrowsSheet = true },
+                        enabled = (state?.throws?.isNotEmpty() == true),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Throws")
+                    }
+                },
+            )
         },
     ) { inner ->
         Column(
@@ -98,6 +127,11 @@ fun ActiveRoundScreen(
                     DiscDataMode.NONE -> Unit
                 }
 
+                FlightModifierRow(
+                    pending = pendingFlightMod,
+                    onToggle = viewModel::togglePendingFlightMod,
+                )
+
                 val throws = state?.throws.orEmpty()
                 ImageWithOverlay(
                     imagePath = round.imagePath,
@@ -126,6 +160,112 @@ fun ActiveRoundScreen(
                     onClick = onEndRound,
                     modifier = Modifier.weight(1f),
                 ) { Text("End Round") }
+            }
+        }
+    }
+
+    if (showThrowsSheet) {
+        val throws = state?.throws.orEmpty()
+        val discDataMode = state?.round?.discDataMode ?: DiscDataMode.NONE
+        ThrowsSheet(
+            throws = throws,
+            discs = discs,
+            discDataMode = discDataMode,
+            onDelete = viewModel::deleteThrow,
+            onDismiss = { showThrowsSheet = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThrowsSheet(
+    throws: List<ThrowEntity>,
+    discs: List<DiscEntity>,
+    discDataMode: DiscDataMode,
+    onDelete: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text("Throws", style = MaterialTheme.typography.titleMedium)
+            if (throws.isEmpty()) {
+                Text("No throws yet.", modifier = Modifier.padding(vertical = 16.dp))
+            } else {
+                val ordered = throws.sortedByDescending { it.index }
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(ordered, key = { it.id }) { t ->
+                        ThrowRow(
+                            throwEntity = t,
+                            discs = discs,
+                            discDataMode = discDataMode,
+                            onDelete = { onDelete(t.id) },
+                        )
+                        HorizontalDivider()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThrowRow(
+    throwEntity: ThrowEntity,
+    discs: List<DiscEntity>,
+    discDataMode: DiscDataMode,
+    onDelete: () -> Unit,
+) {
+    val discLabel = when (discDataMode) {
+        DiscDataMode.DISC -> discs.firstOrNull { it.id == throwEntity.discId }?.name
+        DiscDataMode.TYPE -> throwEntity.discType?.displayName()
+        DiscDataMode.NONE -> null
+    }
+    val modLabel = throwEntity.flightModifier?.displayName()
+    val parts = buildList {
+        add("#${throwEntity.index + 1}")
+        add(if (throwEntity.isHit) "Hit" else "Miss")
+        if (discLabel != null) add(discLabel)
+        if (modLabel != null) add(modLabel)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(parts.joinToString("  ·  "), modifier = Modifier.weight(1f))
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Filled.Close, contentDescription = "Delete throw")
+        }
+    }
+}
+
+@Composable
+private fun FlightModifierRow(
+    pending: FlightModifier?,
+    onToggle: (FlightModifier) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FlightModifier.entries.forEach { mod ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = pending == mod,
+                    onCheckedChange = { onToggle(mod) },
+                )
+                Text(mod.displayName())
             }
         }
     }

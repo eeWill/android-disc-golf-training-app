@@ -32,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -63,8 +64,10 @@ fun SetupScreen(
         factory = simpleFactory { SetupViewModel(context.repository(), context.discRepository()) },
     )
 
-    var state by remember { mutableStateOf(SetupState()) }
-    var pendingFile by remember { mutableStateOf<File?>(null) }
+    var state by rememberSaveable(stateSaver = SetupStateSaver) {
+        mutableStateOf(SetupState())
+    }
+    var pendingFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val reusedRoundId by reusedRoundIdFlow.collectAsState()
     val discs by viewModel.discs.collectAsState()
@@ -81,13 +84,13 @@ fun SetupScreen(
     val takePicture = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture(),
     ) { success ->
-        val file = pendingFile
+        val file = pendingFilePath?.let { File(it) }
         if (success && file != null && file.exists() && file.length() > 0L) {
             state = state.copy(imagePath = file.absolutePath, gapRect = null)
         } else {
             file?.delete()
         }
-        pendingFile = null
+        pendingFilePath = null
     }
 
     Scaffold(
@@ -117,7 +120,7 @@ fun SetupScreen(
                 OutlinedButton(
                     onClick = {
                         val file = ImageFiles.createRoundImageFile(context)
-                        pendingFile = file
+                        pendingFilePath = file.absolutePath
                         val uri = ImageFiles.fileProviderUri(context, file)
                         takePicture.launch(uri)
                     },
@@ -132,6 +135,10 @@ fun SetupScreen(
                     Text("Reuse Previous")
                 }
             }
+            Text(
+                "Tip: hold the phone sideways for a landscape shot — gaps are easier to tap.",
+                style = MaterialTheme.typography.bodySmall,
+            )
 
             state.imagePath?.let { path ->
                 Text("Drag on the image to mark the gap.")
@@ -168,6 +175,17 @@ fun SetupScreen(
                     modifier = Modifier.weight(1f),
                 )
             }
+
+            OutlinedTextField(
+                value = state.minDistanceFeet,
+                onValueChange = { state = state.copy(minDistanceFeet = it.filter { c -> c.isDigit() || c == '.' }) },
+                label = { Text("Minimum distance (ft, optional)") },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Text("Disc Data", style = MaterialTheme.typography.titleSmall)
             Row(

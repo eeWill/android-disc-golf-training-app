@@ -77,6 +77,9 @@ interface RoundDao {
     )
     suspend fun deleteLastThrow(roundId: String)
 
+    @Query("DELETE FROM throws WHERE id = :id")
+    suspend fun deleteThrow(id: String)
+
     @Query("DELETE FROM rounds WHERE id = :id")
     suspend fun deleteRound(id: String)
 
@@ -160,4 +163,13 @@ interface RoundDao {
         """
     )
     fun getGapStatsGroupedByDisc(): Flow<List<DiscGapStatsByDiscRow>>
+
+    @Query("SELECT discId FROM round_short_discs WHERE roundId = :roundId")
+    fun getShortDiscIds(roundId: String): Flow<List<String>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertShortDisc(entry: RoundShortDiscEntity)
+
+    @Query("DELETE FROM round_short_discs WHERE roundId = :roundId AND discId = :discId")
+    suspend fun deleteShortDisc(roundId: String, discId: String)
 }

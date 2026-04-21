@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.eewill.discgolftraining.data.ApproachRoundRepository
 import com.eewill.discgolftraining.data.DiscEntity
 import com.eewill.discgolftraining.data.DiscRepository
+import com.eewill.discgolftraining.data.DiscType
 import com.eewill.discgolftraining.data.RoundRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -74,17 +75,18 @@ class DiscDetailViewModel(
         if (nameError.value != null) nameError.value = null
     }
 
-    fun saveName(newName: String) {
+    fun save(newName: String, newType: DiscType, newNotes: String) {
         val trimmed = newName.trim()
         if (trimmed.isBlank()) {
             nameError.value = "Name cannot be empty"
             return
         }
         val current = state.value.disc ?: return
-        if (trimmed == current.name) return
+        val normalizedNotes = newNotes.ifBlank { null }
+        if (trimmed == current.name && newType == current.type && normalizedNotes == current.notes) return
         viewModelScope.launch {
             isSaving.value = true
-            discRepo.updateDisc(current.copy(name = trimmed))
+            discRepo.updateDisc(current.copy(name = trimmed, type = newType, notes = normalizedNotes))
             isSaving.value = false
         }
     }

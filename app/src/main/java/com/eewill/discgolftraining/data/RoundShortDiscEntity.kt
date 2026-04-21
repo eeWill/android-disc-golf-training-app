@@ -3,10 +3,10 @@ package com.eewill.discgolftraining.data
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
-import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "throws",
+    tableName = "round_short_discs",
+    primaryKeys = ["roundId", "discId"],
     foreignKeys = [
         ForeignKey(
             entity = RoundEntity::class,
@@ -18,19 +18,12 @@ import androidx.room.PrimaryKey
             entity = DiscEntity::class,
             parentColumns = ["id"],
             childColumns = ["discId"],
-            onDelete = ForeignKey.SET_NULL,
+            onDelete = ForeignKey.CASCADE,
         ),
     ],
     indices = [Index("roundId"), Index("discId")],
 )
-data class ThrowEntity(
-    @PrimaryKey val id: String,
+data class RoundShortDiscEntity(
     val roundId: String,
-    val index: Int,
-    val x: Float,
-    val y: Float,
-    val isHit: Boolean,
-    val discType: DiscType? = null,
-    val discId: String? = null,
-    val flightModifier: FlightModifier? = null,
+    val discId: String,
 )

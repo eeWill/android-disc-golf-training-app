@@ -8,6 +8,7 @@ import com.eewill.discgolftraining.data.DiscDataMode
 import com.eewill.discgolftraining.data.DiscEntity
 import com.eewill.discgolftraining.data.DiscRepository
 import com.eewill.discgolftraining.data.DiscType
+import com.eewill.discgolftraining.data.FlightModifier
 import com.eewill.discgolftraining.data.RoundRepository
 import com.eewill.discgolftraining.data.RoundWithThrows
 import com.eewill.discgolftraining.data.ThrowEntity
@@ -59,11 +60,18 @@ class ActiveRoundViewModel(
     private val _currentDiscId = MutableStateFlow<String?>(null)
     val currentDiscId: StateFlow<String?> = _currentDiscId.asStateFlow()
 
+    private val _pendingFlightMod = MutableStateFlow<FlightModifier?>(null)
+    val pendingFlightMod: StateFlow<FlightModifier?> = _pendingFlightMod.asStateFlow()
+
     fun selectType(type: DiscType) = _currentType.update { type }
 
     fun selectDisc(id: String) = _currentDiscId.update { id }
 
     fun setTypeFilter(type: DiscType?) = _typeFilter.update { type }
+
+    fun togglePendingFlightMod(mod: FlightModifier) {
+        _pendingFlightMod.update { if (it == mod) null else mod }
+    }
 
     /** Ensure the current disc selection is valid given the latest visible discs list. */
     fun ensureDiscSelection(discs: List<DiscEntity>) {
@@ -102,6 +110,9 @@ class ActiveRoundViewModel(
             }
         }
 
+        val flightMod = _pendingFlightMod.value
+        _pendingFlightMod.value = null
+
         viewModelScope.launch {
             repository.insertThrow(
                 ThrowEntity(
@@ -113,12 +124,22 @@ class ActiveRoundViewModel(
                     isHit = isHit,
                     discType = throwDiscType,
                     discId = throwDiscId,
+                    flightModifier = flightMod,
                 )
             )
         }
     }
 
+    fun deleteThrow(throwId: String) {
+        viewModelScope.launch { repository.deleteThrow(throwId) }
+    }
+
     fun undoLast() {
+        val current = state.value ?: return
+        val lastThrow = current.throws.maxByOrNull { it.index }
+        if (current.round.discDataMode == DiscDataMode.DISC && lastThrow?.discId != null) {
+            _currentDiscId.value = lastThrow.discId
+        }
         viewModelScope.launch { repository.deleteLastThrow(roundId) }
     }
 }
