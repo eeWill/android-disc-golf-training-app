@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eewill.discgolftraining.ui.approach.map.ApproachMap
 import com.eewill.discgolftraining.ui.approachRoundRepository
+import com.eewill.discgolftraining.ui.components.ExitRoundGuard
 import com.eewill.discgolftraining.ui.simpleFactory
 import com.google.android.gms.maps.model.LatLng
 
@@ -92,6 +93,7 @@ fun ApproachActiveScreen(
         if (lat != null && lng != null) LatLng(lat, lng) else null
     }
 
+    ExitRoundGuard(onConfirmExit = onEndRound) { requestExit ->
     Scaffold(
         topBar = { TopAppBar(title = { Text(targetLabel) }) },
     ) { inner ->
@@ -269,11 +271,12 @@ fun ApproachActiveScreen(
 
             Spacer(Modifier.height(4.dp))
             Button(
-                onClick = onEndRound,
+                onClick = requestExit,
                 enabled = recordedCount > 0,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Done") }
         }
+    }
     }
 }
 

@@ -26,4 +26,10 @@ interface DiscDao {
 
     @Query("SELECT * FROM discs ORDER BY sortOrder ASC, createdAt ASC")
     fun getAllDiscs(): Flow<List<DiscEntity>>
+
+    @Query("SELECT * FROM discs WHERE isActive = 1 ORDER BY sortOrder ASC, createdAt ASC")
+    fun getActiveDiscs(): Flow<List<DiscEntity>>
+
+    @Query("SELECT * FROM discs WHERE includeInStats = 1 ORDER BY sortOrder ASC, createdAt ASC")
+    fun getDiscsForStats(): Flow<List<DiscEntity>>
 }

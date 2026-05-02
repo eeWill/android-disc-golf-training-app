@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -185,7 +186,22 @@ fun ApproachSetupScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Open Settings") }
             } else {
-                DiscTypeFilter(selected = typeFilter, onChange = { typeFilter = it })
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        DiscTypeFilter(selected = typeFilter, onChange = { typeFilter = it })
+                    }
+                    val visibleIds = visibleDiscs.map { it.id }
+                    val allSelected = visibleIds.isNotEmpty() && visibleIds.all { it in selected }
+                    TextButton(
+                        onClick = { viewModel.setSelection(visibleIds, !allSelected) },
+                        enabled = visibleIds.isNotEmpty(),
+                    ) {
+                        Text(if (allSelected) "Deselect all" else "Select all")
+                    }
+                }
                 if (visibleDiscs.isEmpty()) {
                     Text(
                         "No discs of this type.",

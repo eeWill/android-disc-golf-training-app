@@ -47,6 +47,7 @@ import com.eewill.discgolftraining.data.DiscType
 import com.eewill.discgolftraining.data.FlightModifier
 import com.eewill.discgolftraining.data.ThrowEntity
 import com.eewill.discgolftraining.ui.components.DiscTypeFilter
+import com.eewill.discgolftraining.ui.components.ExitRoundGuard
 import com.eewill.discgolftraining.ui.components.ImageWithOverlay
 import com.eewill.discgolftraining.ui.components.ThrowMarker
 import com.eewill.discgolftraining.ui.discRepository
@@ -79,6 +80,7 @@ fun ActiveRoundScreen(
 
     LaunchedEffect(visibleDiscs) { viewModel.ensureDiscSelection(visibleDiscs) }
 
+    ExitRoundGuard(onConfirmExit = onEndRound) { requestExit ->
     Scaffold(
         topBar = {
             val hits = state?.throws?.count { it.isHit } ?: 0
@@ -157,7 +159,7 @@ fun ActiveRoundScreen(
                     enabled = (state?.throws?.isNotEmpty() == true),
                 ) { Text("Undo Last Throw") }
                 Button(
-                    onClick = onEndRound,
+                    onClick = requestExit,
                     modifier = Modifier.weight(1f),
                 ) { Text("End Round") }
             }
@@ -174,6 +176,7 @@ fun ActiveRoundScreen(
             onDelete = viewModel::deleteThrow,
             onDismiss = { showThrowsSheet = false },
         )
+    }
     }
 }
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eewill.discgolftraining.data.PuttingResult
+import com.eewill.discgolftraining.ui.components.ExitRoundGuard
 import com.eewill.discgolftraining.ui.puttingRoundRepository
 import com.eewill.discgolftraining.ui.simpleFactory
 
@@ -55,12 +56,13 @@ fun PuttingActiveScreen(
     val throwsPerPosition = round?.throwsPerPosition ?: 0
     val positions = state.positions
 
+    ExitRoundGuard(onConfirmExit = onEndRound) { requestExit ->
     Scaffold(
         topBar = { TopAppBar(title = { Text("Putting") }) },
         bottomBar = {
             BottomAppBar {
                 Button(
-                    onClick = onEndRound,
+                    onClick = requestExit,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
@@ -116,6 +118,7 @@ fun PuttingActiveScreen(
                 }
             }
         }
+    }
     }
 }
 

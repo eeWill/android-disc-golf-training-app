@@ -23,6 +23,7 @@ data class SetupState(
     val minDistanceFeet: String = "",
     val gapRect: Rect? = null,
     val discDataMode: DiscDataMode = DiscDataMode.NONE,
+    val selectedDiscIds: Set<String> = emptySet(),
 ) {
     val distance: Float? get() = distanceFeet.toFloatOrNull()
     val width: Float? get() = gapWidthFeet.toFloatOrNull()
@@ -35,16 +36,17 @@ data class SetupState(
             gapRect != null &&
             gapRect.width > 0f && gapRect.height > 0f &&
             (minDistanceFeet.isBlank() || (minDistance ?: 0f) > 0f) &&
-            (discDataMode != DiscDataMode.DISC || hasDiscs)
+            (discDataMode != DiscDataMode.DISC || (hasDiscs && selectedDiscIds.isNotEmpty()))
 
     companion object {
-        fun fromRound(round: RoundEntity): SetupState = SetupState(
+        fun fromRound(round: RoundEntity, selectedDiscIds: Set<String> = emptySet()): SetupState = SetupState(
             imagePath = round.imagePath,
             distanceFeet = round.distanceFeet.trimmedString(),
             gapWidthFeet = round.gapWidthFeet.trimmedString(),
             minDistanceFeet = round.minDistanceFeet?.trimmedString().orEmpty(),
             gapRect = Rect(round.gapLeft, round.gapTop, round.gapRight, round.gapBottom),
             discDataMode = round.discDataMode,
+            selectedDiscIds = selectedDiscIds,
         )
     }
 }
@@ -64,6 +66,7 @@ val SetupStateSaver: Saver<SetupState, Any> = mapSaver(
             "gapRight" to s.gapRect?.right,
             "gapBottom" to s.gapRect?.bottom,
             "discDataMode" to s.discDataMode.name,
+            "selectedDiscIds" to ArrayList(s.selectedDiscIds),
         )
     },
     restore = { m ->
@@ -74,6 +77,8 @@ val SetupStateSaver: Saver<SetupState, Any> = mapSaver(
             m["gapRight"] as Float,
             m["gapBottom"] as Float,
         ) else null
+        @Suppress("UNCHECKED_CAST")
+        val ids = (m["selectedDiscIds"] as? List<String>)?.toSet() ?: emptySet()
         SetupState(
             imagePath = m["imagePath"] as String?,
             distanceFeet = m["distanceFeet"] as String,
@@ -83,6 +88,7 @@ val SetupStateSaver: Saver<SetupState, Any> = mapSaver(
             discDataMode = (m["discDataMode"] as? String)
                 ?.let { runCatching { DiscDataMode.valueOf(it) }.getOrNull() }
                 ?: DiscDataMode.NONE,
+            selectedDiscIds = ids,
         )
     },
 )
@@ -93,13 +99,15 @@ class SetupViewModel(
 ) : ViewModel() {
 
     val discs: StateFlow<List<DiscEntity>> =
-        discRepository.getAllDiscs().stateIn(
+        discRepository.getActiveDiscs().stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
         )
 
     suspend fun loadRound(id: String): RoundEntity? = repository.getRound(id)
+
+    suspend fun loadRoundDiscIds(id: String): List<String> = repository.getRoundDiscIdsOnce(id)
 
     fun beginRound(state: SetupState, onReady: (String) -> Unit) {
         val imagePath = state.imagePath ?: return
@@ -108,6 +116,11 @@ class SetupViewModel(
         val rect = state.gapRect ?: return
 
         val id = UUID.randomUUID().toString()
+        val orderedDiscIds = if (state.discDataMode == DiscDataMode.DISC) {
+            discs.value
+                .filter { it.id in state.selectedDiscIds }
+                .map { it.id }
+        } else emptyList()
         viewModelScope.launch {
             repository.insertRound(
                 RoundEntity(
@@ -122,7 +135,8 @@ class SetupViewModel(
                     gapBottom = rect.bottom,
                     discDataMode = state.discDataMode,
                     minDistanceFeet = state.minDistance?.takeIf { it > 0f },
-                )
+                ),
+                discIds = orderedDiscIds,
             )
             onReady(id)
         }

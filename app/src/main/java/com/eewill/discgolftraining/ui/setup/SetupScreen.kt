@@ -2,7 +2,9 @@ package com.eewill.discgolftraining.ui.setup
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -38,8 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eewill.discgolftraining.data.DiscDataMode
+import com.eewill.discgolftraining.data.DiscType
+import com.eewill.discgolftraining.ui.components.DiscTypeFilter
 import com.eewill.discgolftraining.ui.components.GapBoxDrawer
 import com.eewill.discgolftraining.ui.discRepository
 import com.eewill.discgolftraining.ui.repository
@@ -76,10 +82,13 @@ fun SetupScreen(
         val id = reusedRoundId ?: return@LaunchedEffect
         val round = viewModel.loadRound(id)
         if (round != null) {
-            state = SetupState.fromRound(round)
+            val ids = viewModel.loadRoundDiscIds(id).toSet()
+            state = SetupState.fromRound(round, ids)
         }
         onReusedRoundIdConsumed()
     }
+
+    var typeFilter by remember { mutableStateOf<DiscType?>(null) }
 
     val takePicture = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture(),
@@ -201,13 +210,73 @@ fun SetupScreen(
                 }
             }
 
-            if (state.discDataMode == DiscDataMode.DISC && discs.isEmpty()) {
-                Text(
-                    "Add a disc in Settings to use this mode.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                TextButton(onClick = onOpenSettings) {
-                    Text("Go to Settings")
+            if (state.discDataMode == DiscDataMode.DISC) {
+                if (discs.isEmpty()) {
+                    Text(
+                        "Add a disc in Settings to use this mode.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    TextButton(onClick = onOpenSettings) {
+                        Text("Go to Settings")
+                    }
+                } else {
+                    Text("Discs to throw", style = MaterialTheme.typography.titleSmall)
+                    val visibleDiscs = typeFilter?.let { t -> discs.filter { it.type == t } } ?: discs
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            DiscTypeFilter(selected = typeFilter, onChange = { typeFilter = it })
+                        }
+                        val visibleIds = visibleDiscs.map { it.id }
+                        val allSelected = visibleIds.isNotEmpty() && visibleIds.all { it in state.selectedDiscIds }
+                        TextButton(
+                            onClick = {
+                                val next = state.selectedDiscIds.toMutableSet().also {
+                                    if (allSelected) it.removeAll(visibleIds.toSet()) else it.addAll(visibleIds)
+                                }
+                                state = state.copy(selectedDiscIds = next)
+                            },
+                            enabled = visibleIds.isNotEmpty(),
+                        ) {
+                            Text(if (allSelected) "Deselect all" else "Select all")
+                        }
+                    }
+                    if (visibleDiscs.isEmpty()) {
+                        Text(
+                            "No discs of this type.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    visibleDiscs.forEach { disc ->
+                        val checked = disc.id in state.selectedDiscIds
+                        val toggle = {
+                            val next = state.selectedDiscIds.toMutableSet().also {
+                                if (!it.add(disc.id)) it.remove(disc.id)
+                            }
+                            state = state.copy(selectedDiscIds = next)
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { toggle() }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked = checked, onCheckedChange = { toggle() })
+                            Spacer(Modifier.padding(horizontal = 4.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(disc.name, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    disc.type.displayName(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

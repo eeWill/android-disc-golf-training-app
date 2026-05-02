@@ -36,7 +36,9 @@ class ActiveRoundViewModel(
         )
 
     val discs: StateFlow<List<DiscEntity>> =
-        discRepository.getAllDiscs().stateIn(
+        combine(repository.getRoundDiscs(roundId), discRepository.getActiveDiscs()) { selected, active ->
+            if (selected.isNotEmpty()) selected else active
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),

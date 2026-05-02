@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -90,24 +91,45 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .clickable { onOpenDisc(disc.id) },
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth().padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(disc.name, style = MaterialTheme.typography.titleSmall)
-                                    Text(disc.type.displayName(), style = MaterialTheme.typography.bodySmall)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(disc.name, style = MaterialTheme.typography.titleSmall)
+                                        Text(disc.type.displayName(), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.moveUp(disc.id) },
+                                        enabled = index > 0,
+                                    ) { Text("↑") }
+                                    TextButton(
+                                        onClick = { viewModel.moveDown(disc.id) },
+                                        enabled = index < discs.lastIndex,
+                                    ) { Text("↓") }
+                                    TextButton(onClick = { viewModel.deleteDisc(disc.id) }) {
+                                        Text("Delete")
+                                    }
                                 }
-                                TextButton(
-                                    onClick = { viewModel.moveUp(disc.id) },
-                                    enabled = index > 0,
-                                ) { Text("↑") }
-                                TextButton(
-                                    onClick = { viewModel.moveDown(disc.id) },
-                                    enabled = index < discs.lastIndex,
-                                ) { Text("↓") }
-                                TextButton(onClick = { viewModel.deleteDisc(disc.id) }) {
-                                    Text("Delete")
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                ) {
+                                    ToggleLabel(
+                                        label = "Active",
+                                        checked = disc.isActive,
+                                        onCheckedChange = { viewModel.setActive(disc.id, it) },
+                                    )
+                                    ToggleLabel(
+                                        label = "In stats",
+                                        checked = disc.includeInStats,
+                                        onCheckedChange = { viewModel.setIncludeInStats(disc.id, it) },
+                                    )
                                 }
                             }
                         }
@@ -118,6 +140,18 @@ fun SettingsScreen(
             HorizontalDivider()
             AddDiscForm(onAdd = viewModel::addDisc)
         }
+    }
+}
+
+@Composable
+private fun ToggleLabel(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 4.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

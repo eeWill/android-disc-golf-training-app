@@ -31,7 +31,7 @@ class DiscListStatsViewModel(
     val typeFilter: StateFlow<DiscType?> = _typeFilter.asStateFlow()
 
     val items: StateFlow<List<DiscListStatsItem>> = combine(
-        discRepo.getAllDiscs(),
+        discRepo.getDiscsForStats(),
         roundRepo.getGapStatsGroupedByDisc(),
         approachRepo.getApproachStatsGroupedByDisc(),
         _typeFilter,

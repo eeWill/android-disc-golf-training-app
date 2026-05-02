@@ -20,7 +20,7 @@ class ApproachSetupViewModel(
 ) : ViewModel() {
 
     val discs: StateFlow<List<DiscEntity>> =
-        discRepo.getAllDiscs().stateIn(
+        discRepo.getActiveDiscs().stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
@@ -38,6 +38,12 @@ class ApproachSetupViewModel(
     fun toggleDisc(id: String) {
         _selectedDiscIds.value = _selectedDiscIds.value.toMutableSet().also {
             if (!it.add(id)) it.remove(id)
+        }
+    }
+
+    fun setSelection(ids: Collection<String>, selected: Boolean) {
+        _selectedDiscIds.value = _selectedDiscIds.value.toMutableSet().also {
+            if (selected) it.addAll(ids) else it.removeAll(ids.toSet())
         }
     }
 

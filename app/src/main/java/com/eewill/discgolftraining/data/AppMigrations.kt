@@ -3,6 +3,32 @@ package com.eewill.discgolftraining.data
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+val MIGRATION_13_14: Migration = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `round_discs` (
+                `roundId` TEXT NOT NULL,
+                `discId` TEXT NOT NULL,
+                `sortIndex` INTEGER NOT NULL,
+                PRIMARY KEY(`roundId`, `discId`),
+                FOREIGN KEY(`roundId`) REFERENCES `rounds`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`discId`) REFERENCES `discs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_round_discs_roundId` ON `round_discs`(`roundId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_round_discs_discId` ON `round_discs`(`discId`)")
+    }
+}
+
+val MIGRATION_12_13: Migration = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `discs` ADD COLUMN `isActive` INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE `discs` ADD COLUMN `includeInStats` INTEGER NOT NULL DEFAULT 1")
+    }
+}
+
 val MIGRATION_11_12: Migration = object : Migration(11, 12) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `throws` ADD COLUMN `flightModifier` TEXT")

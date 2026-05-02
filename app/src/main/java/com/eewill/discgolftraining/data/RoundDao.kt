@@ -172,4 +172,20 @@ interface RoundDao {
 
     @Query("DELETE FROM round_short_discs WHERE roundId = :roundId AND discId = :discId")
     suspend fun deleteShortDisc(roundId: String, discId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRoundDiscs(discs: List<RoundDiscEntity>)
+
+    @Query(
+        """
+        SELECT d.* FROM discs d
+        INNER JOIN round_discs rd ON rd.discId = d.id
+        WHERE rd.roundId = :roundId
+        ORDER BY rd.sortIndex ASC
+        """
+    )
+    fun getRoundDiscs(roundId: String): Flow<List<DiscEntity>>
+
+    @Query("SELECT discId FROM round_discs WHERE roundId = :roundId ORDER BY sortIndex ASC")
+    suspend fun getRoundDiscIdsOnce(roundId: String): List<String>
 }

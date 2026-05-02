@@ -41,6 +41,18 @@ class SettingsViewModel(private val repository: DiscRepository) : ViewModel() {
         viewModelScope.launch { repository.deleteDisc(id) }
     }
 
+    fun setActive(id: String, active: Boolean) {
+        val disc = discs.value.firstOrNull { it.id == id } ?: return
+        if (disc.isActive == active) return
+        viewModelScope.launch { repository.updateDisc(disc.copy(isActive = active)) }
+    }
+
+    fun setIncludeInStats(id: String, include: Boolean) {
+        val disc = discs.value.firstOrNull { it.id == id } ?: return
+        if (disc.includeInStats == include) return
+        viewModelScope.launch { repository.updateDisc(disc.copy(includeInStats = include)) }
+    }
+
     fun moveUp(id: String) = swapAdjacent(id, offset = -1)
 
     fun moveDown(id: String) = swapAdjacent(id, offset = +1)

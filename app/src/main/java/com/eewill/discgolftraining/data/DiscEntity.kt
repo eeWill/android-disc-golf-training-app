@@ -11,4 +11,6 @@ data class DiscEntity(
     val createdAt: Long,
     val sortOrder: Long = 0L,
     val notes: String? = null,
+    val isActive: Boolean = true,
+    val includeInStats: Boolean = true,
 )
